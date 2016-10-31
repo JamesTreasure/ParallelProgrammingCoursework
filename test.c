@@ -62,7 +62,7 @@ void setupArray(int arrayLength) {
 int getNumberOfLinesInFile(char *fileName){
     FILE *input;
     input = fopen(fileName, "r"); // reopen file to reset ptr
-    int ch = 0;
+    double ch = 0;
     int numberOfLines = 0;
 
     do
@@ -85,7 +85,7 @@ double *readFile(char *fileName) {
     input = fopen(fileName, "r"); // reopen file to reset ptr
     int numberOfLines = getNumberOfLinesInFile(fileName);
 
-    double *arr = malloc(numberOfLines * sizeof(int));
+    double *arr = malloc(numberOfLines * sizeof(double));
     int i;
     int temp;
 
@@ -105,7 +105,9 @@ double *readFile(char *fileName) {
 void useFile(){
     double *fileRead;
 
-    fileRead = readFile("/Users/jamestreasure/ClionProjects/Parallel/testArray.txt");
+    fileRead = readFile("/Users/jamestreasure/GitHub/ParallelProgrammingCoursework/testArray.txt");
+
+    arrayLength = sqrt(getNumberOfLinesInFile("/Users/jamestreasure/GitHub/ParallelProgrammingCoursework/testArray.txt"));
 
     myArray = malloc(arrayLength * sizeof(double *));
 
@@ -119,11 +121,9 @@ void useFile(){
             myArray[i][j] = fileRead[i*arrayLength+j];
         }
     }
-
 }
 
 void average(int *inc) {
-
     int thrNum = *inc;
     int start_row, end_row;
     int n = (arrayLength - 2) / numberOfThreads;
@@ -170,7 +170,6 @@ void average(int *inc) {
 
         printf("Thread %d finished averaging %d to %d\n", thrNum, start_row, end_row);
 
-
         for (int i = 0; i < arrayLength; ++i) {
             for (int j = 0; j < arrayLength; ++j) {
                 tempArray[i][j] = myArray[i][j];
@@ -183,11 +182,11 @@ int main(int argc, char **argv) {
     clock_t begin = clock();
     srand(time(NULL));
 
-    arrayLength = 100;
+    //arrayLength = 100;
     precision = 0.001;
 
-    //useFile();
-    setupArray(arrayLength);
+    useFile();
+    //setupArray(arrayLength);
     print2DArray(arrayLength,myArray);
 
     threads = malloc(sizeof(pthread_t)*numberOfThreads);
@@ -200,7 +199,6 @@ int main(int argc, char **argv) {
             printf("Could not create thread: %d\n", i);
             return -1;
         }
-
     }
 
     for(int i = 0; i< numberOfThreads; ++i)
