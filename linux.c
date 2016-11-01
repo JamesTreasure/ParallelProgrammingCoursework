@@ -1,4 +1,4 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
@@ -7,11 +7,11 @@
 int arrayLength;
 double **myArray;
 double precision;
-int numberOfThreads;
+int numberOfThreads = 2;
 pthread_mutex_t lock;
 pthread_t *threads;
 pthread_barrier_t barr;
-int ended;
+
 
 int isNotAnEdge(int arrayLength, int row, int column) {
     return (row >= 1 && column != 0 && column != arrayLength - 1 && row != arrayLength - 1);
@@ -35,7 +35,7 @@ int isPrecisionMet(double **myArray, double **tempArray, int arrayLength) {
 void print2DArray(int arrayLength, double **myArray) {
     for (int i = 0; i < arrayLength; i++) {
         for (int j = 0; j < arrayLength; j++) {
-            printf("%.4f,", myArray[i][j]);
+            printf("%.10f,", myArray[i][j]);
         }
         printf("\n");
     }
@@ -61,8 +61,71 @@ void setupArray(int arrayLength) {
     }
 }
 
-void average(int *inc) {
+int getNumberOfLinesInFile(char *fileName){
+    FILE *input;
+    input = fopen(fileName, "r"); // reopen file to reset ptr
+    double ch = 0;
+    int numberOfLines = 0;
 
+    do
+    {
+        ch = fgetc(input);
+        if(ch == '\n')
+            numberOfLines++;
+    } while (ch != EOF);
+
+    if(ch != '\n' && numberOfLines != 0)
+        numberOfLines++;
+
+    fclose(input);
+
+    return numberOfLines;
+}
+
+double *readFile(char *fileName) {
+    FILE *input;
+    input = fopen(fileName, "r"); // reopen file to reset ptr
+    int numberOfLines = getNumberOfLinesInFile(fileName);
+
+    double *arr = malloc(numberOfLines * sizeof(double));
+    int i;
+    int temp;
+
+    for (i = 0; i < 100; ++i)
+    {
+        // Skip whitespace
+        do {
+            temp = fgetc(input);
+        } while (temp == ' ' || temp == '\n');
+
+        // Store number
+        arr[i] = temp - '0';
+    }
+    return arr;
+}
+
+void useFile(){
+    double *fileRead;
+
+    fileRead = readFile("/home/james/Desktop/testArrayKnown.txt");
+
+    arrayLength = sqrt(getNumberOfLinesInFile("/home/james/Desktop/testArrayKnown.txt"));
+
+    myArray = malloc(arrayLength * sizeof(double *));
+
+    for (int i = 0; i < arrayLength; ++i) {
+        myArray[i] = malloc(arrayLength * sizeof(double));
+    }
+
+    for (int i = 0; i < arrayLength; ++i) {
+        for (int j = 0; j < arrayLength; ++j) {
+            printf("Value is %f\n",fileRead[i*arrayLength+j]);
+            myArray[i][j] = fileRead[i*arrayLength+j];
+        }
+    }
+}
+
+void average(int *inc) {
     int thrNum = *inc;
     int start_row, end_row;
     int n = (arrayLength - 2) / numberOfThreads;
@@ -76,8 +139,8 @@ void average(int *inc) {
 
     printf("Thread %d will average row %d to %d\n", thrNum, start_row, end_row);
 
+    int ended = 0;
     double **tempArray;
-    ended = 0;
 
     tempArray = malloc(arrayLength * sizeof(double *));
     for (int i = 0; i < arrayLength; ++i) {
@@ -103,14 +166,10 @@ void average(int *inc) {
             }
         }
 
-        printf("Ended is %d\n", ended);
-
         if (isPrecisionMet(myArray, tempArray, arrayLength)) {
-            printf("Precision was met\n");
             ended = 1;
         }
 
-        printf("ended is %d\n", ended);
 
         //printf("Thread %d finished averaging %d to %d\n", thrNum, start_row, end_row);
 
@@ -124,7 +183,6 @@ void average(int *inc) {
             printf("Barrier wait has worked");
         }
 
-
         for (int i = 0; i < arrayLength; ++i) {
             for (int j = 0; j < arrayLength; ++j) {
                 tempArray[i][j] = myArray[i][j];
@@ -133,18 +191,19 @@ void average(int *inc) {
     }
 }
 
-int main() {
+int main(int argc, char **argv) {
     clock_t begin = clock();
     srand(time(NULL));
 
-    numberOfThreads = 2;
+    //arrayLength = 100;
+    precision = 0.001;
 
+    useFile();
+    //setupArray(arrayLength);
+    print2DArray(arrayLength,myArray);
 
-    arrayLength = 10;
-    precision = 1.0;
+    pthread_barrier_init(&barr, NULL, numberOfThreads);
 
-    setupArray(arrayLength);
-    /* create threads */
     threads = malloc(sizeof(pthread_t)*numberOfThreads);
     for(int i = 0; i < numberOfThreads; ++i)
     {
@@ -155,10 +214,7 @@ int main() {
             printf("Could not create thread: %d\n", i);
             return -1;
         }
-
     }
-
-    pthread_barrier_init(&barr, NULL, numberOfThreads);
 
     for(int i = 0; i< numberOfThreads; ++i)
     {
@@ -171,7 +227,9 @@ int main() {
 
     clock_t end = clock();
     double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
-    printf("%f", time_spent);
+    printf("%f\n", time_spent);
+
+    print2DArray(arrayLength,myArray);
 
     return 0;
 }
