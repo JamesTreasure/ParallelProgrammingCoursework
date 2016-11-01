@@ -132,7 +132,7 @@ void relax(int *inc) {
         end_row = start_row + n - 1;
     }
 
-    printf("Thread %d will relax row %d to %d\n", thrNum, start_row, end_row);
+    //printf("Thread %d will relax row %d to %d\n", thrNum, start_row, end_row);
 
     int ended = 0;
     double **tempArray;
@@ -159,10 +159,10 @@ void relax(int *inc) {
             iterationCount++;
             ended = 0;
             pthread_cond_broadcast(&condition); //unblocks all threads currently blocked on &condition
-            printf("Thread %d is broadcasting signals\n", thrNum);
-            printf("Round %d starts now\n", iterationCount);
+            //printf("Thread %d is broadcasting signals\n", thrNum);
+            //printf("Round %d starts now\n", iterationCount);
         }else{
-            printf("Thread number %d is waiting for lock to be lifted\n", thrNum);
+            //printf("Thread number %d is waiting for lock to be lifted\n", thrNum);
             pthread_cond_wait(&condition, &lock);
         }
 
@@ -184,20 +184,20 @@ void relax(int *inc) {
 
         if(barrierWait != 0 && barrierWait != PTHREAD_BARRIER_SERIAL_THREAD)
         {
-            printf("Could not wait on barrier.\n");
+            //printf("Could not wait on barrier.\n");
             exit(-1);
         }else{
-            printf("Barrier wait has worked\n");
+            //printf("Barrier wait has worked\n");
         }
 
         if (isPrecisionMet(myArray, tempArray, arrayLength)) {
-            printf("Thread %d says that precision has been met\n", thrNum);
+            //printf("Thread %d says that precision has been met\n", thrNum);
             ended = 1;
         }else{
-            printf("Thread %d says that the precision has NOT been met\n", thrNum);
+            //printf("Thread %d says that the precision has NOT been met\n", thrNum);
         }
 
-        printf("Thread %d finished averaging %d to %d\n", thrNum, start_row, end_row);
+        //printf("Thread %d finished averaging %d to %d\n", thrNum, start_row, end_row);
 
         for (int i = 0; i < arrayLength; ++i) {
             for (int j = 0; j < arrayLength; ++j) {
@@ -209,15 +209,19 @@ void relax(int *inc) {
 
 int main(int argc, char **argv) {
     clock_t begin = clock();
+    struct timespec start, finish;
+    double elapsed;
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
     srand(time(NULL));
 
-    arrayLength = 10;
-    precision = 0.001;
+    arrayLength = 200;
+    precision = 0.0001;
 
 
-    useFile();
-    //setupArray(arrayLength);
-    print2DArray(arrayLength,myArray);
+    //useFile();
+    setupArray(arrayLength);
+    //print2DArray(arrayLength,myArray);
 
     pthread_mutex_init(&lock, NULL);
     pthread_cond_init(&condition, NULL);
@@ -248,9 +252,15 @@ int main(int argc, char **argv) {
 
     clock_t end = clock();
     double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
-    printf("%f\n", time_spent);
+    printf("CPU time spent is %f\n", time_spent);
 
-    print2DArray(arrayLength,myArray);
+    clock_gettime(CLOCK_MONOTONIC, &finish);
+
+    elapsed = (finish.tv_sec - start.tv_sec);
+    elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
+    printf("Real time is %f\n", elapsed);
+
+    //print2DArray(arrayLength,myArray);
 
     return 0;
 }
