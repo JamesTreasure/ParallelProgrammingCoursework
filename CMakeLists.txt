@@ -9,3 +9,6 @@ set(SOURCE_FILES test.c)
 #set(SOURCE_FILES githubParallel.c)
 #set(SOURCE_FILES workSplitTest.c)
 add_executable(Parallel ${SOURCE_FILES})
+TARGET_LINK_LIBRARIES( Parallel
+        pthread
+        )

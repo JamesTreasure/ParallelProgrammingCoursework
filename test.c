@@ -7,8 +7,12 @@
 int arrayLength;
 double **myArray;
 double precision;
-int numberOfThreads = 1;
+int numberOfThreads = 4;
+int iterationCount = 0;
+int waitCounter = 0;
 pthread_mutex_t lock;
+pthread_cond_t condition;
+pthread_barrier_t barrier;
 pthread_t *threads;
 
 int isNotAnEdge(int arrayLength, int row, int column) {
@@ -20,7 +24,7 @@ int isPrecisionMet(double **myArray, double **tempArray, int arrayLength) {
     for (int i = 0; i < arrayLength; ++i) {
         for (int j = 0; j < arrayLength; ++j) {
             if (isNotAnEdge(arrayLength, i, j)) {
-                double currentPrecision = fabs(myArray[i][j] - tempArray[i][j]);
+                double currentPrecision = fabs(myArray[i][j] - tempArray[i][j]);    //fabs takes the absoulte value of a double
                 if (currentPrecision > max) {
                     max = currentPrecision;
                 }
@@ -80,32 +84,26 @@ int getNumberOfLinesInFile(char *fileName){
     return numberOfLines;
 }
 
-double *readFile(char *fileName) {
+int *readFile(char *fileName) {
     FILE *input;
     input = fopen(fileName, "r"); // reopen file to reset ptr
     int numberOfLines = getNumberOfLinesInFile(fileName);
 
-    double *arr = malloc(numberOfLines * sizeof(int));
-    int i;
-    int temp;
+    int *arr = malloc(numberOfLines * sizeof(int));
 
-    for (i = 0; i < 100; ++i)
+    for (int i = 0; i < 100; i++)
     {
-        // Skip whitespace
-        do {
-            temp = fgetc(input);
-        } while (temp == ' ' || temp == '\n');
+        fscanf(input, "%d,", &arr[i] );
 
-        // Store number
-        arr[i] = temp - '0';
     }
+
     return arr;
 }
 
 void useFile(){
-    double *fileRead;
+    int *fileRead;
 
-    fileRead = readFile("/Users/jamestreasure/ClionProjects/Parallel/testArray.txt");
+    fileRead = readFile("/home/james/ClionProjects/ParallelProgrammingCoursework/testArray.txt");
 
     myArray = malloc(arrayLength * sizeof(double *));
 
@@ -115,14 +113,13 @@ void useFile(){
 
     for (int i = 0; i < arrayLength; ++i) {
         for (int j = 0; j < arrayLength; ++j) {
-            printf("Value is %f\n",fileRead[i*arrayLength+j]);
             myArray[i][j] = fileRead[i*arrayLength+j];
         }
     }
 
 }
 
-void average(int *inc) {
+void relax(int *inc) {
 
     int thrNum = *inc;
     int start_row, end_row;
@@ -135,7 +132,7 @@ void average(int *inc) {
         end_row = start_row + n - 1;
     }
 
-    printf("Thread %d will average row %d to %d\n", thrNum, start_row, end_row);
+    printf("Thread %d will relax row %d to %d\n", thrNum, start_row, end_row);
 
     int ended = 0;
     double **tempArray;
@@ -151,7 +148,26 @@ void average(int *inc) {
         }
     }
 
+    //potentially just change to a while true and then break once the precision has been met?
     while (ended != 1) {
+
+        pthread_mutex_lock(&lock);
+        waitCounter++;
+
+        if(waitCounter == numberOfThreads){
+            waitCounter = 0;
+            iterationCount++;
+            ended = 0;
+            pthread_cond_broadcast(&condition); //unblocks all threads currently blocked on &condition
+            printf("Thread %d is broadcasting signals\n", thrNum);
+            printf("Round %d starts now\n", iterationCount);
+        }else{
+            printf("Thread number %d is waiting for lock to be lifted\n", thrNum);
+            pthread_cond_wait(&condition, &lock);
+        }
+
+        pthread_mutex_unlock(&lock);
+
         for (int i = start_row; i <= end_row; ++i) {
             for (int j = 0; j < arrayLength; ++j) {
                 if (isNotAnEdge(arrayLength, i, j)) {
@@ -164,12 +180,24 @@ void average(int *inc) {
             }
         }
 
+        int barrierWait = pthread_barrier_wait(&barrier);
+
+        if(barrierWait != 0 && barrierWait != PTHREAD_BARRIER_SERIAL_THREAD)
+        {
+            printf("Could not wait on barrier.\n");
+            exit(-1);
+        }else{
+            printf("Barrier wait has worked\n");
+        }
+
         if (isPrecisionMet(myArray, tempArray, arrayLength)) {
+            printf("Thread %d says that precision has been met\n", thrNum);
             ended = 1;
+        }else{
+            printf("Thread %d says that the precision has NOT been met\n", thrNum);
         }
 
         printf("Thread %d finished averaging %d to %d\n", thrNum, start_row, end_row);
-
 
         for (int i = 0; i < arrayLength; ++i) {
             for (int j = 0; j < arrayLength; ++j) {
@@ -183,19 +211,25 @@ int main(int argc, char **argv) {
     clock_t begin = clock();
     srand(time(NULL));
 
-    arrayLength = 100;
+    arrayLength = 10;
     precision = 0.001;
 
-    //useFile();
-    setupArray(arrayLength);
+
+    useFile();
+    //setupArray(arrayLength);
     print2DArray(arrayLength,myArray);
 
+    pthread_mutex_init(&lock, NULL);
+    pthread_cond_init(&condition, NULL);
+    pthread_barrier_init(&barrier, NULL, numberOfThreads);
+
     threads = malloc(sizeof(pthread_t)*numberOfThreads);
+
     for(int i = 0; i < numberOfThreads; ++i)
     {
         int *inc = malloc(sizeof(i));
         *inc = i;
-        if(pthread_create(&threads[i], NULL, (void*(*)(void*))average, inc))
+        if(pthread_create(&threads[i], NULL, (void *(*)(void *)) relax, inc))
         {
             printf("Could not create thread: %d\n", i);
             return -1;
