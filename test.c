@@ -3,12 +3,17 @@
 #include <math.h>
 #include <time.h>
 #include <pthread.h>
+#include <unistd.h>
+#include <ctype.h>
+
+#define TRUE  (1==1)
+#define FALSE (!TRUE)
 
 int arrayLength;
 double **myArray;
-double precision = 0.000000000001;
+double precision;
 int verbose = 0;
-int numberOfThreads = 1;
+int numberOfThreads;
 int iterationCount = 0;
 int waitCounter = 0;
 pthread_mutex_t lock;
@@ -135,7 +140,7 @@ void relax(int *inc) {
 
     printf("Thread %d will relax row %d to %d\n", thrNum, start_row, end_row);
 
-    int ended = 0;
+    int ended = FALSE;
     double **tempArray;
 
     tempArray = malloc(arrayLength * sizeof(double *));
@@ -150,7 +155,7 @@ void relax(int *inc) {
     }
 
     //potentially just change to a while true and then break once the precision has been met?
-    while (ended != 1) {
+    while (!ended) {
 
         pthread_mutex_lock(&lock);
         waitCounter++;
@@ -158,7 +163,7 @@ void relax(int *inc) {
         if (waitCounter == numberOfThreads) {
             waitCounter = 0;
             iterationCount++;
-            ended = 0;
+            ended = FALSE;
             pthread_cond_broadcast(&condition); //unblocks all threads currently blocked on &condition
             if (verbose) printf("Thread %d is broadcasting signals\n", thrNum);
             if (verbose) printf("Round %d starts now\n", iterationCount);
@@ -184,15 +189,15 @@ void relax(int *inc) {
         int barrierWait = pthread_barrier_wait(&barrier);
 
         if (barrierWait != 0 && barrierWait != PTHREAD_BARRIER_SERIAL_THREAD) {
-            //printf("Could not wait on barrier.\n");
+            printf("Could not wait on barrier.\n");
             exit(-1);
         } else {
-            //printf("Barrier wait has worked\n");
+            if(verbose)printf("Barrier wait has worked\n");
         }
 
         if (isPrecisionMet(myArray, tempArray, arrayLength)) {
             if (verbose) printf("Thread %d says that precision has been met\n", thrNum);
-            ended = 1;
+            ended = TRUE;
         } else {
             if (verbose) printf("Thread %d says that the precision has NOT been met\n", thrNum);
         }
@@ -215,17 +220,16 @@ int main(int argc, char **argv) {
     clock_gettime(CLOCK_MONOTONIC, &start);
     srand(time(NULL));
 
+    int c;
+    int fileFlag = FALSE;
 
-    while ((c = getopt(argc, argv, "fbc:")) != -1)
+    while ((c = getopt(argc, argv, "fv:")) != -1)
         switch (c) {
             case 'f':
-                fileFlag = 1;
+                fileFlag = TRUE;
                 break;
-            case 'b':
-                bflag = 1;
-                break;
-            case 'c':
-                cvalue = optarg;
+            case 'v':
+                verbose = 1;
                 break;
             case '?':
                 if (optopt == 'c')
@@ -240,29 +244,33 @@ int main(int argc, char **argv) {
             default:
                 abort();
         }
-    printf("fileFlag = %d, bflag = %d, cvalue = %s\n",
-           fileFlag, bflag, cvalue);
-
-    for (index = optind; index < argc; index++)
-        printf("Non-option argument %s\n", argv[index]);
-
-    if (argc < 4) {
-        printf("Not enough arguments. Please enter matrix dimension, precision and number of threads.\n");
-        exit(0);
+    if(fileFlag){
+        useFile("/home/james/ClionProjects/ParallelProgrammingCoursework/testArrayLarge200by200.txt");
+    }
+    else if ((argc < 4) & (fileFlag == FALSE)) {
+        printf("Not enough arguments. Running with default 10x10, 0.1 precision, 1 thread.\n");
+        arrayLength = 10;
+        precision = 0.1;
+        numberOfThreads = 1;
+        setupArray(arrayLength);
     } else {
         arrayLength = strtol(argv[1], NULL, 10);
-        precision = strtol(argv[2], NULL, 10);
-        threads = strtol(argv[3], NULL, 10);
+        precision = atof(argv[2]);
+        numberOfThreads = strtol(argv[3], NULL, 10);
+        setupArray(arrayLength);
     }
 
-    printf("arrayLength is %d\n", arrayLength);
-    printf("threads are %d\n", threads);
-    printf("precision is %d\n", precision);
-
-
-    useFile("/home/james/ClionProjects/ParallelProgrammingCoursework/testArrayLarge200by200.txt");
-    //setupArray(arrayLength);
+    printf("----------------------------------------------------------------------------\n");
+    printf("Beginning with the following arguments:\n");
+    printf("Matrix dimension: %d by %d\n", arrayLength, arrayLength);
+    printf("Precision: %.10f\n", precision);
+    printf("Number of threads %d\n", numberOfThreads);
+    printf("----------------------------------------------------------------------------\n");
+    printf("Starting array:\n");
     print2DArray(arrayLength, myArray);
+    printf("----------------------------------------------------------------------------\n");
+
+
 
     pthread_mutex_init(&lock, NULL);
     pthread_cond_init(&condition, NULL);
@@ -288,15 +296,19 @@ int main(int argc, char **argv) {
 
     clock_t end = clock();
     double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
-    printf("CPU time spent is %f\n", time_spent);
 
     clock_gettime(CLOCK_MONOTONIC, &finish);
 
     elapsed = (finish.tv_sec - start.tv_sec);
     elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
-    printf("Real time is %f\n", elapsed);
 
+    printf("----------------------------------------------------------------------------\n");
+    printf("Finished array:\n");
     print2DArray(arrayLength, myArray);
+    printf("----------------------------------------------------------------------------\n");
+    printf("Real time is %f\n", elapsed);
+    printf("CPU time spent is %f\n", time_spent);
+
 
     return 0;
 }
