@@ -100,6 +100,7 @@ int *readFile(char *fileName) {
     return arr;
 }
 
+
 void useFile(){
     int *fileRead;
 
@@ -216,7 +217,7 @@ int main(int argc, char **argv) {
     srand(time(NULL));
 
     arrayLength = 200;
-    precision = 0.0001;
+    precision = 0.001;
 
 
     //useFile();
