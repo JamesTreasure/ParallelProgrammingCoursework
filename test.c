@@ -6,7 +6,7 @@
 
 int arrayLength;
 double **myArray;
-double precision;
+double precision = 0.000000000001;
 int verbose = 0;
 int numberOfThreads = 1;
 int iterationCount = 0;
@@ -25,7 +25,7 @@ int isPrecisionMet(double **myArray, double **tempArray, int arrayLength) {
     for (int i = 0; i < arrayLength; ++i) {
         for (int j = 0; j < arrayLength; ++j) {
             if (isNotAnEdge(arrayLength, i, j)) {
-                double currentPrecision = fabs(myArray[i][j] - tempArray[i][j]);    //fabs takes the absoulte value of a double
+                double currentPrecision = fabs(myArray[i][j] - tempArray[i][j]);//fabs takes the absoulte value of a double
                 if (currentPrecision > max) {
                     max = currentPrecision;
                 }
@@ -39,7 +39,6 @@ void print2DArray(int arrayLength, double **myArray) {
     for (int i = 0; i < arrayLength; i++) {
         for (int j = 0; j < arrayLength; j++) {
             printf("%.10f,", myArray[i][j]);
-//            printf("Reading %d as %f\n", (i*arrayLength+j+1), myArray[i][j]);
         }
         printf("\n");
     }
@@ -65,7 +64,7 @@ void setupArray(int arrayLength) {
     }
 }
 
-int getNumberOfLinesInFile(char *fileName){
+int getNumberOfLinesInTextFile(char *fileName){
     FILE *input;
     input = fopen(fileName, "r"); // reopen file to reset ptr
     int ch = 0;
@@ -91,7 +90,7 @@ int getNumberOfLinesInFile(char *fileName){
 int *readFile(char *fileName) {
     FILE *input;
     input = fopen(fileName, "r"); // reopen file to reset ptr
-    int numberOfLines = getNumberOfLinesInFile(fileName);
+    int numberOfLines = getNumberOfLinesInTextFile(fileName);
 
     int *arr = malloc(numberOfLines * sizeof(int));
 
@@ -210,18 +209,13 @@ void relax(int *inc) {
     }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *argv[]) {
     clock_t begin = clock();
     struct timespec start, finish;
     double elapsed;
 
-    if(verbose) printf("Test");
-
     clock_gettime(CLOCK_MONOTONIC, &start);
     srand(time(NULL));
-
-    //arrayLength = 25;
-    precision = 0.000000000001;
 
 
     useFile("/home/james/ClionProjects/ParallelProgrammingCoursework/testArrayLarge200by200.txt");
