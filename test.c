@@ -7,7 +7,8 @@
 int arrayLength;
 double **myArray;
 double precision;
-int numberOfThreads = 4;
+int verbose = 0;
+int numberOfThreads = 1;
 int iterationCount = 0;
 int waitCounter = 0;
 pthread_mutex_t lock;
@@ -38,13 +39,14 @@ void print2DArray(int arrayLength, double **myArray) {
     for (int i = 0; i < arrayLength; i++) {
         for (int j = 0; j < arrayLength; j++) {
             printf("%.10f,", myArray[i][j]);
+//            printf("Reading %d as %f\n", (i*arrayLength+j+1), myArray[i][j]);
         }
         printf("\n");
     }
 }
 
 double generateRandomNumber() {
-    double range = (100 - 0);
+    double range = 100;
     double div = RAND_MAX / range;
     return 0 + (rand() / div);
 }
@@ -81,6 +83,8 @@ int getNumberOfLinesInFile(char *fileName){
 
     fclose(input);
 
+    arrayLength = sqrt(numberOfLines);
+
     return numberOfLines;
 }
 
@@ -91,7 +95,7 @@ int *readFile(char *fileName) {
 
     int *arr = malloc(numberOfLines * sizeof(int));
 
-    for (int i = 0; i < 100; i++)
+    for (int i = 0; i < numberOfLines; i++)
     {
         fscanf(input, "%d,", &arr[i] );
 
@@ -100,14 +104,12 @@ int *readFile(char *fileName) {
     return arr;
 }
 
-
-void useFile(){
+void useFile(char *fileName){
     int *fileRead;
 
-    fileRead = readFile("/home/james/ClionProjects/ParallelProgrammingCoursework/testArray.txt");
+    fileRead = readFile(fileName);
 
     myArray = malloc(arrayLength * sizeof(double *));
-
     for (int i = 0; i < arrayLength; ++i) {
         myArray[i] = malloc(arrayLength * sizeof(double));
     }
@@ -133,7 +135,7 @@ void relax(int *inc) {
         end_row = start_row + n - 1;
     }
 
-    //printf("Thread %d will relax row %d to %d\n", thrNum, start_row, end_row);
+    printf("Thread %d will relax row %d to %d\n", thrNum, start_row, end_row);
 
     int ended = 0;
     double **tempArray;
@@ -160,10 +162,10 @@ void relax(int *inc) {
             iterationCount++;
             ended = 0;
             pthread_cond_broadcast(&condition); //unblocks all threads currently blocked on &condition
-            //printf("Thread %d is broadcasting signals\n", thrNum);
-            //printf("Round %d starts now\n", iterationCount);
+            if(verbose) printf("Thread %d is broadcasting signals\n", thrNum);
+            if(verbose) printf("Round %d starts now\n", iterationCount);
         }else{
-            //printf("Thread number %d is waiting for lock to be lifted\n", thrNum);
+            if(verbose) printf("Thread number %d is waiting for lock to be lifted\n", thrNum);
             pthread_cond_wait(&condition, &lock);
         }
 
@@ -192,13 +194,13 @@ void relax(int *inc) {
         }
 
         if (isPrecisionMet(myArray, tempArray, arrayLength)) {
-            //printf("Thread %d says that precision has been met\n", thrNum);
+            if(verbose) printf("Thread %d says that precision has been met\n", thrNum);
             ended = 1;
         }else{
-            //printf("Thread %d says that the precision has NOT been met\n", thrNum);
+            if(verbose) printf("Thread %d says that the precision has NOT been met\n", thrNum);
         }
 
-        //printf("Thread %d finished averaging %d to %d\n", thrNum, start_row, end_row);
+        if(verbose) printf("Thread %d finished averaging %d to %d\n", thrNum, start_row, end_row);
 
         for (int i = 0; i < arrayLength; ++i) {
             for (int j = 0; j < arrayLength; ++j) {
@@ -213,16 +215,18 @@ int main(int argc, char **argv) {
     struct timespec start, finish;
     double elapsed;
 
+    if(verbose) printf("Test");
+
     clock_gettime(CLOCK_MONOTONIC, &start);
     srand(time(NULL));
 
-    arrayLength = 200;
-    precision = 0.001;
+    //arrayLength = 25;
+    precision = 0.000000000001;
 
 
-    //useFile();
-    setupArray(arrayLength);
-    //print2DArray(arrayLength,myArray);
+    useFile("/home/james/ClionProjects/ParallelProgrammingCoursework/testArrayLarge200by200.txt");
+    //setupArray(arrayLength);
+    print2DArray(arrayLength,myArray);
 
     pthread_mutex_init(&lock, NULL);
     pthread_cond_init(&condition, NULL);
@@ -261,7 +265,7 @@ int main(int argc, char **argv) {
     elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
     printf("Real time is %f\n", elapsed);
 
-    //print2DArray(arrayLength,myArray);
+    print2DArray(arrayLength,myArray);
 
     return 0;
 }

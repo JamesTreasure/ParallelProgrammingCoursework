@@ -4,11 +4,7 @@ project(Parallel)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
 
 set(SOURCE_FILES test.c)
-#set(SOURCE_FILES old-from-balena.c)
-#set(SOURCE_FILES threadedHelloWorld.c)
-#set(SOURCE_FILES githubParallel.c)
-#set(SOURCE_FILES workSplitTest.c)
+#set(SOURCE_FILES linux.c)
 add_executable(Parallel ${SOURCE_FILES})
-TARGET_LINK_LIBRARIES( Parallel
-        pthread
-        )
+TARGET_LINK_LIBRARIES(Parallel pthread)
+target_link_libraries(Parallel m)
