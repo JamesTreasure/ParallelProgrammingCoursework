@@ -14,7 +14,6 @@ double **myArray;
 double precision;
 int verbose = 0;
 int numberOfThreads;
-int iterationCount = 0;
 int waitCounter = 0;
 pthread_mutex_t lock;
 pthread_cond_t condition;
@@ -23,6 +22,20 @@ pthread_t *threads;
 
 int isNotAnEdge(int arrayLength, int row, int column) {
     return (row >= 1 && column != 0 && column != arrayLength - 1 && row != arrayLength - 1);
+}
+
+void average(int start_row, int end_row, double *const *tempArray) {
+    for (int i = start_row; i <= end_row; ++i) {
+        for (int j = 0; j < arrayLength; ++j) {
+            if (isNotAnEdge(arrayLength, i, j)) {
+                double above = tempArray[i - 1][j];
+                double below = tempArray[i + 1][j];
+                double left = tempArray[i][j - 1];
+                double right = tempArray[i][j + 1];
+                myArray[i][j] = (above + below + left + right) / 4;
+            }
+        }
+    }
 }
 
 int isPrecisionMet(double **myArray, double **tempArray, int arrayLength) {
@@ -94,23 +107,26 @@ int getNumberOfLinesInTextFile(char *fileName) {
 
 int *readFile(char *fileName) {
     FILE *input;
-    input = fopen(fileName, "r"); // reopen file to reset ptr
-    int numberOfLines = getNumberOfLinesInTextFile(fileName);
-
-    int *arr = malloc(numberOfLines * sizeof(int));
-
-    for (int i = 0; i < numberOfLines; i++) {
-        fscanf(input, "%d,", &arr[i]);
-
+    input = fopen(fileName, "r");
+    if(input == NULL){
+        perror("Error");
+        exit(0);
     }
 
-    return arr;
+    int numberOfLines = getNumberOfLinesInTextFile(fileName);
+    int *fileArray = malloc(numberOfLines * sizeof(int));
+
+    for (int i = 0; i < numberOfLines; i++) {
+        fscanf(input, "%d,", &fileArray[i]);
+    }
+
+    return fileArray;
 }
 
 void useFile(char *fileName) {
-    int *fileRead;
+    int *file;
 
-    fileRead = readFile(fileName);
+    file = readFile(fileName);
 
     myArray = malloc(arrayLength * sizeof(double *));
     for (int i = 0; i < arrayLength; ++i) {
@@ -119,7 +135,7 @@ void useFile(char *fileName) {
 
     for (int i = 0; i < arrayLength; ++i) {
         for (int j = 0; j < arrayLength; ++j) {
-            myArray[i][j] = fileRead[i * arrayLength + j];
+            myArray[i][j] = file[i * arrayLength + j];
         }
     }
 
@@ -127,18 +143,19 @@ void useFile(char *fileName) {
 
 void relax(int *inc) {
 
-    int thrNum = *inc;
+    int threadNumber = *inc;
     int start_row, end_row;
     int n = (arrayLength - 2) / numberOfThreads;
-    if (thrNum == numberOfThreads - 1) {
-        start_row = thrNum * n + 1;
+    if (threadNumber == numberOfThreads - 1) {
+        start_row = threadNumber * n + 1;
         end_row = arrayLength - 2;
     } else {
-        start_row = thrNum * n + 1;
+        start_row = threadNumber * n + 1;
         end_row = start_row + n - 1;
     }
 
-    printf("Thread %d will relax row %d to %d\n", thrNum, start_row, end_row);
+
+    printf("Thread %d will relax row %d to %d\n", threadNumber, start_row, end_row);
 
     int ended = FALSE;
     double **tempArray;
@@ -154,7 +171,6 @@ void relax(int *inc) {
         }
     }
 
-    //potentially just change to a while true and then break once the precision has been met?
     while (!ended) {
 
         pthread_mutex_lock(&lock);
@@ -162,47 +178,28 @@ void relax(int *inc) {
 
         if (waitCounter == numberOfThreads) {
             waitCounter = 0;
-            iterationCount++;
             ended = FALSE;
             pthread_cond_broadcast(&condition); //unblocks all threads currently blocked on &condition
-            if (verbose) printf("Thread %d is broadcasting signals\n", thrNum);
-            if (verbose) printf("Round %d starts now\n", iterationCount);
+            if (verbose) printf("Thread %d is broadcasting signals\n", threadNumber);
         } else {
-            if (verbose) printf("Thread number %d is waiting for lock to be lifted\n", thrNum);
+            if (verbose) printf("Thread number %d is waiting for lock to be lifted\n", threadNumber);
             pthread_cond_wait(&condition, &lock);
         }
 
         pthread_mutex_unlock(&lock);
 
-        for (int i = start_row; i <= end_row; ++i) {
-            for (int j = 0; j < arrayLength; ++j) {
-                if (isNotAnEdge(arrayLength, i, j)) {
-                    double above = tempArray[i - 1][j];
-                    double below = tempArray[i + 1][j];
-                    double left = tempArray[i][j - 1];
-                    double right = tempArray[i][j + 1];
-                    myArray[i][j] = (above + below + left + right) / 4;
-                }
-            }
-        }
+        average(start_row, end_row, tempArray);
 
-        int barrierWait = pthread_barrier_wait(&barrier);
-
-        if (barrierWait != 0 && barrierWait != PTHREAD_BARRIER_SERIAL_THREAD) {
-            printf("Could not wait on barrier.\n");
-            exit(-1);
-        } else {
-            if(verbose)printf("Barrier wait has worked\n");
-        }
+        pthread_barrier_wait(&barrier);
 
         if (isPrecisionMet(myArray, tempArray, arrayLength)) {
-            if (verbose) printf("Thread %d says that precision has been met\n", thrNum);
+            if (verbose) printf("Thread %d says that precision has been met\n", threadNumber);
             ended = TRUE;
         } else {
-            if (verbose) printf("Thread %d says that the precision has NOT been met\n", thrNum);
+            if (verbose) printf("Thread %d says that the precision has NOT been met\n", threadNumber);
         }
 
-        if (verbose) printf("Thread %d finished averaging %d to %d\n", thrNum, start_row, end_row);
+        if (verbose) printf("Thread %d finished averaging %d to %d\n", threadNumber, start_row, end_row);
 
         for (int i = 0; i < arrayLength; ++i) {
             for (int j = 0; j < arrayLength; ++j) {
@@ -221,33 +218,38 @@ int main(int argc, char **argv) {
     srand(time(NULL));
 
     int c;
-    int fileFlag = FALSE;
+    int fileFlag;
+    char *fileLocation;
 
-    while ((c = getopt(argc, argv, "fv:")) != -1)
-        switch (c) {
+    while ((c = getopt (argc, argv, "vf:")) != -1)
+        switch (c)
+        {
+            case 'v':
+                verbose = TRUE;
+                break;
             case 'f':
                 fileFlag = TRUE;
-                break;
-            case 'v':
-                verbose = 1;
+                fileLocation = optarg;
                 break;
             case '?':
-                if (optopt == 'c')
-                    fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-                else if (isprint(optopt))
-                    fprintf(stderr, "Unknown option `-%c'.\n", optopt);
+                if (optopt == 'f')
+                    fprintf (stderr, "Option -%c requires a path to a array text file\n", optopt);
+                else if (isprint (optopt))
+                    fprintf (stderr, "Unknown option `-%c'.\n", optopt);
                 else
-                    fprintf(stderr,
-                            "Unknown option character `\\x%x'.\n",
-                            optopt);
+                    fprintf (stderr,
+                             "Unknown option character `\\x%x'.\n",
+                             optopt);
                 return 1;
             default:
-                abort();
+                abort ();
         }
-    if(fileFlag){
-        useFile("/home/james/ClionProjects/ParallelProgrammingCoursework/testArrayLarge200by200.txt");
-    }
-    else if ((argc < 4) & (fileFlag == FALSE)) {
+
+    if (fileFlag & (argc == 5)) {
+        useFile(fileLocation);
+        precision = atof(argv[3]);
+        numberOfThreads = strtol(argv[4], NULL, 10);
+    } else if ((argc < 4) & (fileFlag == FALSE)) {
         printf("Not enough arguments. Running with default 10x10, 0.1 precision, 1 thread.\n");
         arrayLength = 10;
         precision = 0.1;
@@ -260,6 +262,10 @@ int main(int argc, char **argv) {
         setupArray(arrayLength);
     }
 
+    int index;
+    for (index = optind; index < argc; index++)
+        printf ("Non-option argument number %d is %s\n", index, argv[index]);
+
     printf("----------------------------------------------------------------------------\n");
     printf("Beginning with the following arguments:\n");
     printf("Matrix dimension: %d by %d\n", arrayLength, arrayLength);
@@ -269,7 +275,6 @@ int main(int argc, char **argv) {
     printf("Starting array:\n");
     print2DArray(arrayLength, myArray);
     printf("----------------------------------------------------------------------------\n");
-
 
 
     pthread_mutex_init(&lock, NULL);
@@ -296,9 +301,7 @@ int main(int argc, char **argv) {
 
     clock_t end = clock();
     double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
-
     clock_gettime(CLOCK_MONOTONIC, &finish);
-
     elapsed = (finish.tv_sec - start.tv_sec);
     elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
 
@@ -306,9 +309,7 @@ int main(int argc, char **argv) {
     printf("Finished array:\n");
     print2DArray(arrayLength, myArray);
     printf("----------------------------------------------------------------------------\n");
-    printf("Real time is %f\n", elapsed);
-    printf("CPU time spent is %f\n", time_spent);
-
-
+    printf("Real time elapsed %f\n", elapsed);
+    printf("CPU time elapsed is %f\n", time_spent);
     return 0;
 }
