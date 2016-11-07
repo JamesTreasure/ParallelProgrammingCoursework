@@ -1,0 +1,28 @@
+#!/bin/sh
+# Account & partition (must have these)
+#SBATCH --account=cm30225
+#SBATCH --partition=teaching
+# Name of job (optional)
+#SBATCH --job-name=Test_Hello_World
+# one node
+#SBATCH --nodes=1
+#SBATCH --time=00:10:00
+# any normal shell stuff
+pwd
+# Run the program
+./test 0.01 1
+./test 0.01 2
+./test 0.01 3
+./test 0.01 4
+./test 0.01 5
+./test 0.01 6
+./test 0.01 7
+./test 0.01 8
+./test 0.01 9
+./test 0.01 10
+./test 0.01 11
+./test 0.01 12
+./test 0.01 13
+./test 0.01 14
+./test 0.01 15
+./test 0.01 16
