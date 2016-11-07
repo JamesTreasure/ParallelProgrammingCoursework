@@ -10,19 +10,19 @@
 # any normal shell stuff
 pwd
 # Run the program
-./test 0.01 1
-./test 0.01 2
-./test 0.01 3
-./test 0.01 4
-./test 0.01 5
-./test 0.01 6
-./test 0.01 7
-./test 0.01 8
-./test 0.01 9
-./test 0.01 10
-./test 0.01 11
-./test 0.01 12
-./test 0.01 13
-./test 0.01 14
-./test 0.01 15
-./test 0.01 16
+./test 0.01 1 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 2 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 3 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 4 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 5 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 6 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 7 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 8 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 9 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 10 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 11 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 12 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 13 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 14 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 15 -f /home/g/jat52/scratch/testArray100by100.txt
+./test 0.01 16 -f /home/g/jat52/scratch/testArray100by100.txt

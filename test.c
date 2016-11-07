@@ -262,10 +262,6 @@ int main(int argc, char **argv) {
         setupArray(arrayLength);
     }
 
-    int index;
-    for (index = optind; index < argc; index++)
-        printf ("Non-option argument number %d is %s\n", index, argv[index]);
-
 //    printf("----------------------------------------------------------------------------\n");
 //    printf("Beginning with the following arguments:\n");
 //    printf("Matrix dimension: %d by %d\n", arrayLength, arrayLength);
