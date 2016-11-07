@@ -57,9 +57,9 @@ int isPrecisionMet(double **myArray, double **tempArray, int arrayLength) {
 void print2DArray(int arrayLength, double **myArray) {
     for (int i = 0; i < arrayLength; i++) {
         for (int j = 0; j < arrayLength; j++) {
-            printf("%.10f,", myArray[i][j]);
+            //printf("%.10f,", myArray[i][j]);
         }
-        printf("\n");
+        //printf("\n");
     }
 }
 
@@ -155,7 +155,7 @@ void relax(int *inc) {
     }
 
 
-    printf("Thread %d will relax row %d to %d\n", threadNumber, start_row, end_row);
+    //printf("Thread %d will relax row %d to %d\n", threadNumber, start_row, end_row);
 
     int ended = FALSE;
     double **tempArray;
@@ -266,15 +266,15 @@ int main(int argc, char **argv) {
     for (index = optind; index < argc; index++)
         printf ("Non-option argument number %d is %s\n", index, argv[index]);
 
-    printf("----------------------------------------------------------------------------\n");
-    printf("Beginning with the following arguments:\n");
-    printf("Matrix dimension: %d by %d\n", arrayLength, arrayLength);
-    printf("Precision: %.10f\n", precision);
-    printf("Number of threads %d\n", numberOfThreads);
-    printf("----------------------------------------------------------------------------\n");
-    printf("Starting array:\n");
-    print2DArray(arrayLength, myArray);
-    printf("----------------------------------------------------------------------------\n");
+//    printf("----------------------------------------------------------------------------\n");
+//    printf("Beginning with the following arguments:\n");
+//    printf("Matrix dimension: %d by %d\n", arrayLength, arrayLength);
+//    printf("Precision: %.10f\n", precision);
+//    printf("Number of threads %d\n", numberOfThreads);
+//    printf("----------------------------------------------------------------------------\n");
+//    printf("Starting array:\n");
+//    print2DArray(arrayLength, myArray);
+//    printf("----------------------------------------------------------------------------\n");
 
 
     pthread_mutex_init(&lock, NULL);
@@ -305,11 +305,11 @@ int main(int argc, char **argv) {
     elapsed = (finish.tv_sec - start.tv_sec);
     elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
 
-    printf("----------------------------------------------------------------------------\n");
-    printf("Finished array:\n");
-    print2DArray(arrayLength, myArray);
-    printf("----------------------------------------------------------------------------\n");
-    printf("Real time elapsed %f\n", elapsed);
-    printf("CPU time elapsed is %f\n", time_spent);
+//    printf("----------------------------------------------------------------------------\n");
+//    printf("Finished array:\n");
+//    print2DArray(arrayLength, myArray);
+//    printf("----------------------------------------------------------------------------\n");
+      printf("%f\n", elapsed);
+//    printf("CPU time elapsed is %f\n", time_spent);
     return 0;
 }
