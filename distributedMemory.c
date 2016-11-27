@@ -11,11 +11,13 @@
 #define sendDataTag 2001
 #define returnDataTag 2002
 
-int arrayLength;
+int arrayLength = 10;
 int precisionMet = FALSE;
 double **myArray;
 double precision;
 int verbose = 0;
+double *flattenedArray;
+int numberOfThreads;
 
 
 /**
@@ -123,7 +125,18 @@ void loadFileInto2dArray(char *fileName) {
 
 }
 
-void relaxArray() {
+void relaxArray(int *thread) {
+    //allocates beginning and end row of array to a thread based on thread number
+    int threadNumber = *thread;
+    int start_row, end_row;
+    int n = (arrayLength - 2) / numberOfThreads;
+    if (threadNumber == numberOfThreads - 1) {
+        start_row = threadNumber * n + 1;
+        end_row = arrayLength - 2;
+    } else {
+        start_row = threadNumber * n + 1;
+        end_row = start_row + n - 1;
+    }
 
     //allocates memory for the tempArray and copies in the original array
     double **tempArray;
@@ -140,7 +153,7 @@ void relaxArray() {
     //keep running until precision is met
     while (!precisionMet) {
         precisionMet = TRUE;
-        for (int i = 1; i <= arrayLength-1; ++i) {
+        for (int i = start_row; i <= end_row; ++i) {
             for (int j = 0; j < arrayLength; ++j) {
                 if (isNotAnEdge(arrayLength, i, j)) {
                     double above = tempArray[i - 1][j];
@@ -179,26 +192,47 @@ int main(int argc, char **argv) {
     int processRank;
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
 
-    int number;
+        // use process rank int threadNumber = *thread;
+    int start_row, end_row;
+    int n = (arrayLength - 2) / numberOfProcesses;
+    if (processRank == numberOfProcesses - 1) {
+        start_row = processRank * n + 1;
+        end_row = arrayLength - 2;
+    } else {
+        start_row = processRank * n + 1;
+        end_row = start_row + n - 1;
+    }
+
+    printf("I am process %d, and I am averaging rows %d to %d\n", processRank, start_row, end_row);
+
+
+    double arr[arrayLength*arrayLength];
+    if(processRank == 0){
+        printf("Root process now setting up array\n");
+        for (int i = 0; i < 100; ++i)
+        {
+            arr[i] = i;
+        }
+    }
+
+
     if(processRank == 0){
         printf("I am the root process. Total number of processes: %d\n", numberOfProcesses);
-        number = 100;
         int id;
         for(id = 1; id < numberOfProcesses; id++){
             printf("Sending %d\n", id);
-            MPI_Send(&number, 1, MPI_INT, id, 0, MPI_COMM_WORLD);
+            MPI_Send(arr, arrayLength*arrayLength, MPI_DOUBLE, id, 0, MPI_COMM_WORLD);
         }
     }else{
-        printf("About the receive\n");
-        MPI_Recv(&number, 1, MPI_INT, 0, 0, MPI_COMM_WORLD,
+        MPI_Recv(arr, arrayLength*arrayLength, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD,
              MPI_STATUS_IGNORE);
-        printf("I am process %d receiving number %d\n", processRank, number);
-    }
 
-    // loadFileInto2dArray("/Users/jamestreasure/GitHub/ParallelProgrammingCoursework/testArray.txt");
-    // print2DArray(arrayLength, myArray);
-    // precision = 0.001;
-    // relaxArray();
-    // print2DArray(arrayLength, myArray);
+
+        printf("Process %d averaging between index %d to %d \n", processRank, start_row*arrayLength, end_row*arrayLength);
+
+
+
+
+    }
     return 0;
 }
