@@ -8,10 +8,8 @@
 
 #define TRUE  (1==1)
 #define FALSE (!TRUE)
-#define sendDataTag 2001
-#define returnDataTag 2002
 
-int arrayLength = 10;
+int arrayLength = 5;
 int precisionMet = FALSE;
 double **myArray;
 double precision;
@@ -27,9 +25,8 @@ int numberOfThreads;
  * @param column
  * @return true or false
  */
-int isNotAnEdge(int arrayLength, int row, int column) {
-    return (row >= 1 && column != 0 && column != arrayLength - 1 &&
-            row != arrayLength - 1);
+int isNotAnEdge(int index) {
+    return !((index % arrayLength == 0) || ((index + 1) % arrayLength == 0));
 }
 
 void print2DArray(int arrayLength, double **myArray) {
@@ -155,18 +152,18 @@ void relaxArray(int *thread) {
         precisionMet = TRUE;
         for (int i = start_row; i <= end_row; ++i) {
             for (int j = 0; j < arrayLength; ++j) {
-                if (isNotAnEdge(arrayLength, i, j)) {
-                    double above = tempArray[i - 1][j];
-                    double below = tempArray[i + 1][j];
-                    double left = tempArray[i][j - 1];
-                    double right = tempArray[i][j + 1];
-                    myArray[i][j] = (above + below + left + right) / 4;
+                //if (isNotAnEdge(arrayLength, i, j)) {
+                double above = tempArray[i - 1][j];
+                double below = tempArray[i + 1][j];
+                double left = tempArray[i][j - 1];
+                double right = tempArray[i][j + 1];
+                myArray[i][j] = (above + below + left + right) / 4;
 
-                    double currentPrecision = fabs(myArray[i][j] - tempArray[i][j]);
-                    if(currentPrecision > precision){
-                        precisionMet = FALSE;
-                    }
+                double currentPrecision = fabs(myArray[i][j] - tempArray[i][j]);
+                if (currentPrecision > precision) {
+                    precisionMet = FALSE;
                 }
+                //}
             }
         }
 
@@ -181,6 +178,8 @@ void relaxArray(int *thread) {
 
 int main(int argc, char **argv) {
 
+    srand(time(NULL));
+
     // Initialize the MPI environment
     MPI_Init(NULL, NULL);
 
@@ -192,7 +191,7 @@ int main(int argc, char **argv) {
     int processRank;
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
 
-        // use process rank int threadNumber = *thread;
+    // use process rank int threadNumber = *thread;
     int start_row, end_row;
     int n = (arrayLength - 2) / numberOfProcesses;
     if (processRank == numberOfProcesses - 1) {
@@ -203,36 +202,90 @@ int main(int argc, char **argv) {
         end_row = start_row + n - 1;
     }
 
-    printf("I am process %d, and I am averaging rows %d to %d\n", processRank, start_row, end_row);
-
-
-    double arr[arrayLength*arrayLength];
-    if(processRank == 0){
+    double arr[arrayLength * arrayLength];
+    if (processRank == 0) {
         printf("Root process now setting up array\n");
-        for (int i = 0; i < 100; ++i)
-        {
-            arr[i] = i;
+        printf("------------------------------------------------------\n");
+        for (int i = 0; i < arrayLength * arrayLength; ++i) {
+            arr[i] = generateRandomNumber();
+        }
+
+        for (int i = 0; i < arrayLength; i++) {
+            for (int j = 0; j < arrayLength; j++) {
+                printf("%f,", arr[i * arrayLength + j]);
+            }
+            printf("\n");
+        }
+        printf("------------------------------------------------------\n");
+    }
+
+    // everyone calls bcast and takes data from the root's buffer. No need to receive.
+    MPI_Bcast(arr, arrayLength * arrayLength, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    // printf("Process %d averaging between index %d to %d \n", processRank, start_row*arrayLength, end_row*arrayLength+arrayLength);
+    double tempArray[arrayLength * arrayLength];
+    for (int i = 0; i < arrayLength * arrayLength; ++i) {
+        tempArray[i] = arr[i];
+    }
+
+
+    for (int i = start_row * arrayLength;
+         i < end_row * arrayLength + arrayLength; ++i) {
+        if (isNotAnEdge(i)) {
+            //printf("%d is not an edge\n", i);
+            double above = arr[i - arrayLength];
+            double below = arr[i + arrayLength];
+            double left = arr[i - 1];
+            double right = arr[i + 1];
+            //printf("Value %f with above %f, below %f, left %f and right %f\n", arr[i], above, below, left, right );
+            tempArray[i] = (above + below + left + right) / 4;
+        } else {
+            //printf("%d IS AN EDGE and value is %f\n", i, arr[i] );
         }
     }
 
 
-    if(processRank == 0){
-        printf("I am the root process. Total number of processes: %d\n", numberOfProcesses);
-        int id;
-        for(id = 1; id < numberOfProcesses; id++){
-            printf("Sending %d\n", id);
-            MPI_Send(arr, arrayLength*arrayLength, MPI_DOUBLE, id, 0, MPI_COMM_WORLD);
+    if (processRank == 0) {
+        //replace rows with updated rows
+        for (int i = start_row * arrayLength;
+             i < end_row * arrayLength + arrayLength; ++i) {
+            arr[i] = tempArray[i];
         }
-    }else{
-        MPI_Recv(arr, arrayLength*arrayLength, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD,
-             MPI_STATUS_IGNORE);
+        printf("Updated rows from root process\n");
 
+        for (int i = 1; i < numberOfProcesses; ++i) {
+            double receiveArray[arrayLength * arrayLength];
+            int startEndArray[2];
+            MPI_Recv(startEndArray, 2, MPI_INT, i, 0,
+                     MPI_COMM_WORLD,
+                     MPI_STATUS_IGNORE);
+            MPI_Recv(receiveArray, arrayLength * arrayLength, MPI_DOUBLE, i, 0,
+                     MPI_COMM_WORLD,
+                     MPI_STATUS_IGNORE);
 
-        printf("Process %d averaging between index %d to %d \n", processRank, start_row*arrayLength, end_row*arrayLength);
+            printf("Start is %d, end is %d\n", startEndArray[0],
+                   startEndArray[1]);
 
+            for (int i = startEndArray[0] * arrayLength;
+                 i < startEndArray[1] * arrayLength + arrayLength; ++i) {
+                arr[i] = receiveArray[i];
+            }
+            printf("Finished\n");
+            printf("------------------------------------------------------\n");
+            for (int i = 0; i < arrayLength; i++) {
+                for (int j = 0; j < arrayLength; j++) {
+                    printf("%f,", arr[i * arrayLength + j]);
+                }
+                printf("\n");
+            }
+            printf("------------------------------------------------------\n");
 
-
-
+        }
+    } else {
+        int startEndArray[2] = {start_row, end_row};
+        MPI_Send(startEndArray, 2, MPI_INT, 0, 0, MPI_COMM_WORLD);
+        MPI_Send(tempArray, arrayLength * arrayLength, MPI_DOUBLE, 0, 0,
+                 MPI_COMM_WORLD);
     }
+
     return 0;
 }
