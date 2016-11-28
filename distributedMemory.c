@@ -110,7 +110,7 @@ int *readFile(char *fileName) {
     return fileArray;
 }
 
-void loadFileInto2dArray(char *fileName) {
+void loadFileInto2dArray(char *fileName, ) {
     int *file;
 
     file = readFile(fileName);
@@ -143,7 +143,7 @@ int main(int argc, char **argv) {
     int processRank;
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
 
-    // use process rank int threadNumber = *thread;
+    // use process rank to divide work;
     int start_row, end_row;
     int n = (arrayLength - 2) / numberOfProcesses;
     if (processRank == numberOfProcesses - 1) {
@@ -159,9 +159,11 @@ int main(int argc, char **argv) {
         printf("Root process now setting up array\n");
         printf("------------------------------------------------------\n");
         //This is for a random array
-        for (int i = 0; i < arrayLength * arrayLength; ++i) {
-            arr[i] = generateRandomInteger();
-        }
+//        for (int i = 0; i < arrayLength * arrayLength; ++i) {
+//            arr[i] = generateRandomInteger();
+//        }
+        //loadFileInto2dArray("/Users/jamestreasure/GitHub/ParallelProgrammingCoursework/testForDistributed.txt");
+
         for (int i = 0; i < arrayLength; i++) {
             for (int j = 0; j < arrayLength; j++) {
                 printf("%f,", arr[i * arrayLength + j]);
@@ -172,10 +174,8 @@ int main(int argc, char **argv) {
     }
 
     while (!precisionMet) {
-        // everyone calls bcast and takes data from the root's buffer. No need to receive.
         MPI_Bcast(arr, arrayLength * arrayLength, MPI_DOUBLE, 0,
                   MPI_COMM_WORLD);
-        // printf("Process %d averaging between index %d to %d \n", processRank, start_row*arrayLength, end_row*arrayLength+arrayLength);
         double tempArray[arrayLength * arrayLength];
         for (int i = 0; i < arrayLength * arrayLength; ++i) {
             tempArray[i] = arr[i];
@@ -185,15 +185,11 @@ int main(int argc, char **argv) {
         for (int i = start_row * arrayLength;
              i < end_row * arrayLength + arrayLength; ++i) {
             if (isNotAnEdge(i)) {
-                //printf("%d is not an edge\n", i);
                 double above = arr[i - arrayLength];
                 double below = arr[i + arrayLength];
                 double left = arr[i - 1];
                 double right = arr[i + 1];
-                //printf("Value %f with above %f, below %f, left %f and right %f\n", arr[i], above, below, left, right );
                 tempArray[i] = (above + below + left + right) / 4;
-            } else {
-                //printf("%d IS AN EDGE and value is %f\n", i, arr[i] );
             }
         }
 
@@ -233,15 +229,6 @@ int main(int argc, char **argv) {
                     }
                     arr[i] = receiveArray[i];
                 }
-                // printf("Finished\n");
-                // printf("------------------------------------------------------\n");
-                // for (int i = 0; i < arrayLength; i++) {
-                //     for (int j = 0; j < arrayLength; j++) {
-                //         printf("%f,", arr[i * arrayLength + j]);
-                //     }
-                //     printf("\n");
-                // }
-                // printf("------------------------------------------------------\n");
 
             }
         } else {
