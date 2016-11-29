@@ -30,7 +30,7 @@ int isNotAnEdge(int arrayLength, int row, int column) {
             row != arrayLength - 1);
 }
 
-void print2DArray(int arrayLength, double **myArray) {
+void print2DArray(printArray arrayLength, double **myArray) {
     for (int i = 0; i < arrayLength; i++) {
         for (int j = 0; j < arrayLength; j++) {
             printf("%.10f,", myArray[i][j]);
@@ -267,7 +267,7 @@ int main(int argc, char **argv) {
     printf("Number of threads %d\n", numberOfThreads);
     printf("----------------------------------------------------------------------------\n");
     printf("Starting array:\n");
-    print2DArray(arrayLength, myArray);
+    printArray(arrayLength, myArray);
     printf("----------------------------------------------------------------------------\n");
 
     pthread_barrier_init(&barrier, NULL, numberOfThreads);
@@ -299,7 +299,7 @@ int main(int argc, char **argv) {
 
     printf("----------------------------------------------------------------------------\n");
     printf("Finished array:\n");
-    print2DArray(arrayLength, myArray);
+    printArray(arrayLength, myArray);
     printf("----------------------------------------------------------------------------\n");
     printf("Real time elapsed is %f\n", elapsed);
     printf("CPU time elapsed is %f\n", time_spent);

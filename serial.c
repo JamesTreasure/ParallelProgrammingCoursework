@@ -117,6 +117,16 @@ void loadFileInto2dArray(char *fileName) {
         }
     }
 
+    double oneDArray[arrayLength * arrayLength];
+    for (int k = 0; k < arrayLength * arrayLength; ++k) {
+        oneDArray[k] = file[k];
+    }
+
+    printf("Printing my 1d array\n");
+    for (int l = 0; l < arrayLength * arrayLength; ++l) {
+        printf("%f\n", oneDArray[l]);
+    }
+
 }
 
 void relaxArray() {
@@ -137,7 +147,7 @@ void relaxArray() {
 
         precisionMet = TRUE;
 
-        for (int i = 1; i <= arrayLength-1; ++i) {
+        for (int i = 1; i <= arrayLength - 1; ++i) {
             for (int j = 0; j < arrayLength; ++j) {
                 if (isNotAnEdge(arrayLength, i, j)) {
                     double above = tempArray[i - 1][j];
@@ -146,8 +156,9 @@ void relaxArray() {
                     double right = tempArray[i][j + 1];
                     myArray[i][j] = (above + below + left + right) / 4;
 
-                    double currentPrecision = fabs(myArray[i][j] - tempArray[i][j]);
-                    if(currentPrecision > precision){
+                    double currentPrecision = fabs(
+                            myArray[i][j] - tempArray[i][j]);
+                    if (currentPrecision > precision) {
                         precisionMet = FALSE;
                     }
                 }
@@ -164,10 +175,23 @@ void relaxArray() {
 }
 
 int main(int argc, char **argv) {
-    loadFileInto2dArray("/Users/jamestreasure/GitHub/ParallelProgrammingCoursework/testForDistributed.txt");
-    print2DArray(arrayLength, myArray);
+    clock_t begin = clock();
+    struct timespec start, finish;
+    double elapsed;
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    loadFileInto2dArray(
+            "/home/g/jat52/scratch/testForDistributed.txt");
     relaxArray();
+
+    clock_t end = clock();
+    double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
+    clock_gettime(CLOCK_MONOTONIC, &finish);
+    elapsed = (finish.tv_sec - start.tv_sec);
+    elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
+    printf("Real time elapsed is %f\n", elapsed);
     printf("-------------------------------------------------------------------------------\n");
-    print2DArray(arrayLength, myArray);
+
     return 0;
 }
