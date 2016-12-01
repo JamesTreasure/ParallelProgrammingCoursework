@@ -7,10 +7,9 @@
 #define TRUE  (1==1)
 #define FALSE (!TRUE)
 
-int arrayLength = 10;
+int arrayLength = 100;
 int precisionMet = FALSE;
-double precision = 0.01;
-
+double precision = 0.00001;
 
 int isNotAnEdge(int index) {
     return !((index % arrayLength == 0) || ((index + 1) % arrayLength == 0));
@@ -115,17 +114,19 @@ int main(int argc, char **argv) {
     double arr[arrayLength * arrayLength];
     if (processRank == 0) {
         printf("------------------------------------------------------\n");
-        printf("There are %d processes\n", numberOfProcesses);
-        printf("Array size is %d by %d\n", arrayLength, arrayLength );
-        printf("Precision is %f\n", precision);
+        printf("There are %d processes and ", numberOfProcesses);
+        //printf("Precision is %f\n", precision);
         //printf("------------------------------------------------------\n");
-       //  This is for a random array
-       for (int i = 0; i < arrayLength * arrayLength; ++i) {
-           arr[i] = generateRandomNumber();
-       }
-        // loadFileInto2dArray(
-        //         "/Users/jamestreasure/GitHub/ParallelProgrammingCoursework/testArray.txt",
-        //         arr);
+        //This is for a random array
+        // for (int i = 0; i < arrayLength * arrayLength; ++i) {
+        //    arr[i] = generateRandomNumber();
+        // }
+        loadFileInto2dArray(
+                "testArray100by100.txt",
+                arr);
+
+
+        //printf("Array size is %d by %d\n", arrayLength, arrayLength );
 
         // for (int i = 0; i < arrayLength; i++) {
         //     for (int j = 0; j < arrayLength; j++) {
