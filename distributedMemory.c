@@ -3,13 +3,14 @@
 #include <math.h>
 #include <time.h>
 #include <mpi.h>
+#include <getopt.h>
 
 #define TRUE  (1==1)
 #define FALSE (!TRUE)
 
-int arrayLength = 100;
+int arrayLength;
 int precisionMet = FALSE;
-double precision = 0.00001;
+double precision;
 
 int isNotAnEdge(int index) {
     return !((index % arrayLength == 0) || ((index + 1) % arrayLength == 0));
@@ -80,7 +81,8 @@ void loadFileInto2dArray(char *fileName, double arr[]) {
     }
 }
 
-void updateArrayValues(int start_row, int end_row, double arr[], double tempArray[]) {
+void updateArrayValues(int start_row, int end_row, double arr[],
+                       double tempArray[]) {
     for (int i = start_row * arrayLength;
          i < end_row * arrayLength + arrayLength; ++i) {
         double currentPrecision = fabs(arr[i] - tempArray[i]);
@@ -92,16 +94,67 @@ void updateArrayValues(int start_row, int end_row, double arr[], double tempArra
 }
 
 int main(int argc, char **argv) {
-    srand(time(NULL));
-
-    // Initialize the MPI environment
     MPI_Init(&argc, &argv);
-    clock_t begin = clock();
-    struct timespec start, finish;
-    double elapsed;
 
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    srand(time(NULL));
+    double *arr;
 
+    // clock_t begin = clock();
+    // struct timespec start, finish;
+    // double elapsed;
+
+    // clock_gettime(CLOCK_MONOTONIC, &start);
+
+    //argument handling
+    int c;
+    int fileFlag = FALSE;
+    char *fileLocation;
+
+    while ((c = getopt(argc, argv, "f:")) != -1)
+        switch (c) {
+            case 'f':
+                fileFlag = TRUE;
+                fileLocation = optarg;
+                break;
+            case '?':
+                if (optopt == 'f')
+                    fprintf(stderr,
+                            "Option -%c requires a path to a array text file\n",
+                            optopt);
+                else if (isprint(optopt))
+                    fprintf(stderr, "Unknown option `-%c'.\n", optopt);
+                else
+                    fprintf(stderr,
+                            "Unknown option character `\\x%x'.\n",
+                            optopt);
+                return 1;
+            default:
+                abort();
+        }
+
+
+    printf("arraylength is  %ld\n", strtol(argv[1], NULL, 10));
+    if (fileFlag & (argc == 5)) {
+        arrayLength = strtol(argv[3], NULL, 10);
+        arr = malloc(arrayLength * arrayLength * sizeof(double));
+        loadFileInto2dArray(fileLocation, arr);
+        precision = atof(argv[4]);
+    } else if ((argc < 3) & (fileFlag == FALSE)) {
+        printf("Not enough arguments. Running with default 10x10, 0.1 precision\n");
+        arrayLength = 10;
+        arr = malloc(arrayLength * arrayLength * sizeof(double));
+        precision = 0.1;
+        for (int i = 0; i < arrayLength * arrayLength; ++i) {
+            arr[i] = generateRandomNumber();
+        }
+    } else {
+        arrayLength = strtol(argv[1], NULL, 10);
+        precision = atof(argv[2]);
+        arr = malloc(arrayLength * arrayLength * sizeof(double));
+        for (int i = 0; i < arrayLength * arrayLength; ++i) {
+            arr[i] = generateRandomNumber();
+        }
+    }
 
     // Get the number of processes
     int numberOfProcesses;
@@ -111,30 +164,21 @@ int main(int argc, char **argv) {
     int processRank;
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
 
-    double arr[arrayLength * arrayLength];
     if (processRank == 0) {
         printf("------------------------------------------------------\n");
-        printf("There are %d processes and ", numberOfProcesses);
-        //printf("Precision is %f\n", precision);
-        //printf("------------------------------------------------------\n");
-        //This is for a random array
-        // for (int i = 0; i < arrayLength * arrayLength; ++i) {
-        //    arr[i] = generateRandomNumber();
-        // }
-        loadFileInto2dArray(
-                "testArray100by100.txt",
-                arr);
-
-
-        //printf("Array size is %d by %d\n", arrayLength, arrayLength );
-
-        // for (int i = 0; i < arrayLength; i++) {
-        //     for (int j = 0; j < arrayLength; j++) {
-        //         printf("%f,", arr[i * arrayLength + j]);
-        //     }
-        //     printf("\n");
-        // }
+        printf("There are %d processes, precision is %f and array size is %d by %d\n",
+               numberOfProcesses, precision, arrayLength, arrayLength);
+        printf("------------------------------------------------------\n");
+        printf("Array before relaxing is:\n");
+        for (int i = 0; i < arrayLength; i++) {
+            for (int j = 0; j < arrayLength; j++) {
+                printf("%f,", arr[i * arrayLength + j]);
+            }
+            printf("\n");
+        }
+        printf("------------------------------------------------------\n");
     }
+
     // use process rank to divide work;
     int start_row, end_row;
     int n = (arrayLength - 2) / numberOfProcesses;
@@ -147,8 +191,8 @@ int main(int argc, char **argv) {
     }
 
 
-
     while (!precisionMet) {
+        //broadcast array to all slaves
         MPI_Bcast(arr, arrayLength * arrayLength, MPI_DOUBLE, 0,
                   MPI_COMM_WORLD);
 
@@ -174,42 +218,58 @@ int main(int argc, char **argv) {
             //set precision met to true
             precisionMet = TRUE;
 
-            //replace rows with updated rows from master
+            //master updates the rows it has averaged
             updateArrayValues(start_row, end_row, arr, tempArray);
 
-            //replace rows with updated rows from slave
+            //receive from slave loop
             for (int i = 1; i < numberOfProcesses; ++i) {
                 double receiveArray[arrayLength * arrayLength];
                 int startEndArray[2];
+
+                //receive start and end row from slave
                 MPI_Recv(startEndArray, 2, MPI_INT, i, 0,
                          MPI_COMM_WORLD,
                          MPI_STATUS_IGNORE);
+
+                //receive whole array
                 MPI_Recv(receiveArray, arrayLength * arrayLength, MPI_DOUBLE, i,
                          0,
                          MPI_COMM_WORLD,
                          MPI_STATUS_IGNORE);
+
                 //replace rows with updated rows from slaves
-                updateArrayValues(startEndArray[0], startEndArray[1], arr, receiveArray);
+                updateArrayValues(startEndArray[0], startEndArray[1], arr,
+                                  receiveArray);
             }
         } else {
+            //slave creates array with start and end row
             int startEndArray[2] = {start_row, end_row};
+
+            //send start and end row to master
             MPI_Send(startEndArray, 2, MPI_INT, 0, 0, MPI_COMM_WORLD);
+
+            //send whole array to master
             MPI_Send(tempArray, arrayLength * arrayLength, MPI_DOUBLE, 0, 0,
                      MPI_COMM_WORLD);
         }
+
+        //barrier to synchronise 
         MPI_Barrier(MPI_COMM_WORLD);
+
+        //master broadcasts if precision has been met
         MPI_Bcast(&precisionMet, 1, MPI_INT, 0, MPI_COMM_WORLD);
     }
 
     if (processRank == 0) {
-        //printf("Finished array:\n");
-        //printArray(arrayLength, arr);
-        clock_t end = clock();
-        double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
-        clock_gettime(CLOCK_MONOTONIC, &finish);
-        elapsed = (finish.tv_sec - start.tv_sec);
-        elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
-        printf("Real time elapsed is %f\n", elapsed);
+        printf("Finished array is:\n");
+        printArray(arrayLength, arr);
+        printf("----------------------------------------------------------------------------\n");
+        // clock_t end = clock();
+        // double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
+        // clock_gettime(CLOCK_MONOTONIC, &finish);
+        // elapsed = (finish.tv_sec - start.tv_sec);
+        // elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
+        //printf("Real time elapsed is %f\n", elapsed);
         printf("----------------------------------------------------------------------------\n");
     }
     MPI_Finalize();
