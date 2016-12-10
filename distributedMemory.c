@@ -4,15 +4,14 @@
 #include <time.h>
 #include <mpi.h>
 #include <getopt.h>
+#include <ctype.h>
 
 #define TRUE  (1==1)
 #define FALSE (!TRUE)
 
-int arrayLength;
 int precisionMet = FALSE;
-double precision;
 
-int isNotAnEdge(int index) {
+int isNotAnEdge(int arrayLength, int index) {
     return !((index % arrayLength == 0) || ((index + 1) % arrayLength == 0));
 }
 
@@ -25,6 +24,10 @@ void printArray(int arrayLength, double arr[]) {
     }
 }
 
+/*
+ * Only added as an option to use random numbers. No scalability testing was
+ * carried out using random numbers.
+ */
 double generateRandomNumber() {
     double range = 100;
     double div = RAND_MAX / range;
@@ -49,9 +52,6 @@ int getNumberOfLinesInTextFile(char *fileName) {
 
     fclose(input);
 
-    //as text file is 1 number per line, sqrt to get array length
-    arrayLength = sqrt(numberOfLines);
-
     return numberOfLines;
 }
 
@@ -73,7 +73,7 @@ int *readFile(char *fileName) {
     return fileArray;
 }
 
-void loadFileInto2dArray(char *fileName, double arr[]) {
+void loadFileInto2dArray(int arrayLength, char *fileName, double arr[]) {
     int *file;
     file = readFile(fileName);
     for (int i = 0; i < arrayLength * arrayLength; ++i) {
@@ -81,7 +81,7 @@ void loadFileInto2dArray(char *fileName, double arr[]) {
     }
 }
 
-void updateArrayValues(int start_row, int end_row, double arr[],
+void updateArrayValues(int arrayLength, double precision, int start_row, int end_row, double arr[],
                        double tempArray[]) {
     for (int i = start_row * arrayLength;
          i < end_row * arrayLength + arrayLength; ++i) {
@@ -99,16 +99,19 @@ int main(int argc, char **argv) {
     srand(time(NULL));
     double *arr;
 
-    // clock_t begin = clock();
-    // struct timespec start, finish;
-    // double elapsed;
+     clock_t begin = clock();
+     struct timespec start, finish;
+     double elapsed;
 
-    // clock_gettime(CLOCK_MONOTONIC, &start);
+     clock_gettime(CLOCK_MONOTONIC, &start);
 
     //argument handling
     int c;
     int fileFlag = FALSE;
     char *fileLocation;
+    int arrayLength;
+    double precision;
+    int master = 0;
 
     while ((c = getopt(argc, argv, "f:")) != -1)
         switch (c) {
@@ -132,12 +135,10 @@ int main(int argc, char **argv) {
                 abort();
         }
 
-
-    printf("arraylength is  %ld\n", strtol(argv[1], NULL, 10));
     if (fileFlag & (argc == 5)) {
         arrayLength = strtol(argv[3], NULL, 10);
         arr = malloc(arrayLength * arrayLength * sizeof(double));
-        loadFileInto2dArray(fileLocation, arr);
+        loadFileInto2dArray(arrayLength,fileLocation, arr);
         precision = atof(argv[4]);
     } else if ((argc < 3) & (fileFlag == FALSE)) {
         printf("Not enough arguments. Running with default 10x10, 0.1 precision\n");
@@ -164,7 +165,7 @@ int main(int argc, char **argv) {
     int processRank;
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
 
-    if (processRank == 0) {
+    if (processRank == master) {
         printf("------------------------------------------------------\n");
         printf("There are %d processes, precision is %f and array size is %d by %d\n",
                numberOfProcesses, precision, arrayLength, arrayLength);
@@ -205,7 +206,7 @@ int main(int argc, char **argv) {
         //average
         for (int i = start_row * arrayLength;
              i < end_row * arrayLength + arrayLength; ++i) {
-            if (isNotAnEdge(i)) {
+            if (isNotAnEdge(arrayLength,i)) {
                 double above = arr[i - arrayLength];
                 double below = arr[i + arrayLength];
                 double left = arr[i - 1];
@@ -214,12 +215,12 @@ int main(int argc, char **argv) {
             }
         }
 
-        if (processRank == 0) {
+        if (processRank == master) {
             //set precision met to true
             precisionMet = TRUE;
 
             //master updates the rows it has averaged
-            updateArrayValues(start_row, end_row, arr, tempArray);
+            updateArrayValues(arrayLength, precision, start_row, end_row, arr, tempArray);
 
             //receive from slave loop
             for (int i = 1; i < numberOfProcesses; ++i) {
@@ -238,7 +239,7 @@ int main(int argc, char **argv) {
                          MPI_STATUS_IGNORE);
 
                 //replace rows with updated rows from slaves
-                updateArrayValues(startEndArray[0], startEndArray[1], arr,
+                updateArrayValues(arrayLength, precision, startEndArray[0], startEndArray[1], arr,
                                   receiveArray);
             }
         } else {
@@ -260,16 +261,16 @@ int main(int argc, char **argv) {
         MPI_Bcast(&precisionMet, 1, MPI_INT, 0, MPI_COMM_WORLD);
     }
 
-    if (processRank == 0) {
+    if (processRank == master) {
         printf("Finished array is:\n");
         printArray(arrayLength, arr);
         printf("----------------------------------------------------------------------------\n");
-        // clock_t end = clock();
-        // double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
-        // clock_gettime(CLOCK_MONOTONIC, &finish);
-        // elapsed = (finish.tv_sec - start.tv_sec);
-        // elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
-        //printf("Real time elapsed is %f\n", elapsed);
+         clock_t end = clock();
+         double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
+         clock_gettime(CLOCK_MONOTONIC, &finish);
+         elapsed = (finish.tv_sec - start.tv_sec);
+         elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
+        printf("Real time elapsed is %f\n", elapsed);
         printf("----------------------------------------------------------------------------\n");
     }
     MPI_Finalize();
